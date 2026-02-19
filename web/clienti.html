@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestione Clienti - SPIZ</title>
+    <style>
+        body { font-family: system-ui; background: #1a1a1a; color: white; padding: 2rem; }
+        .container { max-width: 700px; margin: 0 auto; }
+        .card { background: #2a2a2a; padding: 1.5rem; border-radius: 10px; border: 1px solid #444; }
+        input, textarea { width: 100%; padding: 10px; margin: 10px 0; background: #333; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; }
+        button { background: #00d1b2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 2rem; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #444; }
+        .del { background: #ff3860; padding: 5px; font-size: 0.7rem; border-radius: 3px; border: none; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" style="color: #00d1b2; text-decoration: none;">← Torna Indietro</a>
+        <h1>Clienti in Vigore 👥</h1>
+        <div class="card">
+            <input type="text" id="name" placeholder="Nome Cliente">
+            <input type="text" id="kw" placeholder="Keywords (es: Eni, Descalzi)">
+            <textarea id="topic" placeholder="Descrizione semantica del tema"></textarea>
+            <button onclick="add()">Salva Cliente</button>
+        </div>
+        <table id="table">
+            <thead><tr><th>Cliente</th><th>Argomento</th><th>Azione</th></tr></thead>
+            <tbody id="list"></tbody>
+        </table>
+    </div>
+<script>
+    async function load() {
+        const res = await fetch('/api/get-clients');
+        const data = await res.json();
+        const list = document.getElementById('list');
+        list.innerHTML = data.map(c => `
+            <tr>
+                <td><strong>${c.name}</strong><br><small>${c.keywords || ''}</small></td>
+                <td>${c.semantic_topic || ''}</td>
+                <td><button class="del" onclick="del('${c.id}')">Elimina</button></td>
+            </tr>
+        `).join('');
+    }
+    async function add() {
+        const payload = { 
+            name: document.getElementById('name').value, 
+            keywords: document.getElementById('kw').value, 
+            semantic_topic: document.getElementById('topic').value 
+        };
+        await fetch('/api/add-client', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        location.reload();
+    }
+    async function del(id) {
+        if(confirm('Elimino?')) {
+            await fetch(`/api/delete-client/${id}`, { method: 'DELETE' });
+            load();
+        }
+    }
+    load();
+</script>
+</body>
+</html>

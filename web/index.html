@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>SPIZ Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: white; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 2rem; box-sizing: border-box; }
+        .card { background: #2a2a2a; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; width: 600px; max-width: 100%; }
+        .drop-zone { border: 2px dashed #4a4a4a; padding: 1.5rem; margin: 1rem 0; cursor: pointer; border-radius: 10px; transition: 0.3s; }
+        .drop-zone:hover { border-color: #00d1b2; background: #333; }
+        #status { margin-top: 1rem; font-weight: bold; padding: 10px; border-radius: 5px; font-size: 0.9rem; }
+        .success { color: #00d1b2; background: rgba(0, 209, 178, 0.1); }
+        .error { color: #ff3860; background: rgba(255, 56, 96, 0.1); }
+        #mentions-summary { background: #333; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 0.85rem; border-left: 4px solid #00d1b2; display: none; text-align: left; }
+        .nav-link { color: #00d1b2; text-decoration: none; font-size: 0.9rem; display: block; margin-bottom: 1rem; }
+        
+        /* STILI CHAT */
+        #chat-container { margin-top: 2rem; text-align: left; border-top: 1px solid #444; padding-top: 1.5rem; }
+        #chat-output { 
+            background: #1a1a1a; padding: 15px; border-radius: 8px; font-size: 0.9rem; 
+            height: 350px; overflow-y: auto; border: 1px solid #444; 
+            display: flex; flex-direction: column; gap: 12px; margin-bottom: 10px;
+        }
+        .msg { padding: 10px 14px; border-radius: 12px; max-width: 85%; line-height: 1.4; word-wrap: break-word; }
+        .user-msg { background: #00d1b2; color: #000; align-self: flex-end; font-weight: 500; }
+        .ai-msg { background: #333; color: #fff; align-self: flex-start; border: 1px solid #444; white-space: pre-wrap; }
+        .chat-input-area { display: flex; gap: 8px; }
+        input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: 1px solid #444; background: #2a2a2a; color: white; }
+        .btn-send { background: #00d1b2; color: #000; border: none; padding: 0 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <a href="/clienti" class="nav-link">⚙️ Gestisci Clienti in Vigore</a>
+        <h1>SPIZ 🚀</h1>
+        
+        <div id="mentions-summary"></div>
+
+        <div class="drop-zone" onclick="document.getElementById('file-input').click()">
+            Trascina il CSV qui o clicca per caricare la rassegna
+            <input type="file" id="file-input" hidden accept=".csv">
+        </div>
+        
+        <div id="status"></div>
+
+        <div id="chat-container">
+            <h3 style="color: #00d1b2; margin-top: 0;">SPIZ Intelligence 🧠</h3>
+            <div id="chat-output">
+                <div class="msg ai-msg">Ciao! Sono SPIZ. Carica una rassegna o chiedimi un'analisi dei dati, dell'AVE o dei rischi reputazionali.</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Scrivi qui e premi Invio..." onkeypress="if(event.key==='Enter') sendChat()">
+                <button class="btn-send" onclick="sendChat()">Invia</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // Controllo citazioni clienti
+    async function checkMentions() {
+        try {
+            const res = await fetch('/api/today-mentions');
+            const data = await res.json();
+            const div = document.getElementById('mentions-summary');
+            if (data.client_mentions && data.client_mentions.length > 0) {
+                div.style.display = 'block';
+                div.innerHTML = "<strong>🎯 Citazioni oggi:</strong> " + 
+                    data.client_mentions.map(m => `${m.name} (${m.mentions})`).join(", ");
+            } else {
+                div.style.display = 'none';
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    // Caricamento File
+    document.getElementById('file-input').onchange = async (e) => {
+        const file = e.target.files[0];
+        const status = document.getElementById('status');
+        if (!file) return;
+
+        status.innerText = "⏳ Elaborazione file e analisi AI...";
+        status.className = "";
+        
+        const fd = new FormData(); 
+        fd.append('file', file);
+
+        try {
+            const res = await fetch('/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            status.className = data.status === "success" ? "success" : "error";
+            status.innerText = (data.status === "success" ? "✅ " : "❌ ") + data.message;
+            checkMentions();
+        } catch (err) { 
+            status.className = "error";
+            status.innerText = "❌ Errore di connessione."; 
+        }
+    };
+
+    // Chat
+    async function sendChat() {
+        const input = document.getElementById('chat-input');
+        const output = document.getElementById('chat-output');
+        const text = input.value.trim();
+        
+        if (!text) return;
+
+        // Aggiungi domanda utente
+        output.innerHTML += `<div class="msg user-msg">${text}</div>`;
+        input.value = "";
+        output.scrollTop = output.scrollHeight;
+
+        // Placeholder attesa
+        const tempId = "loading-" + Date.now();
+        output.innerHTML += `<div class="msg ai-msg" id="${tempId}">SPIZ sta scrivendo...</div>`;
+        output.scrollTop = output.scrollHeight;
+
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ question: text })
+            });
+            const data = await res.json();
+            document.getElementById(tempId).innerText = data.answer;
+        } catch (err) {
+            document.getElementById(tempId).innerText = "Errore nella comunicazione con l'AI.";
+        }
+        output.scrollTop = output.scrollHeight;
+    }
+
+    checkMentions();
+</script>
+</body>
+</html>
