@@ -85,6 +85,11 @@ class ArticleUpdateSimple(BaseModel):
 class ClientModel(BaseModel):
     name:           str
     keywords:       Optional[str] = None
+    web_keywords:   Optional[str] = None
+    sector:         Optional[str] = None
+    description:    Optional[str] = None
+    website:        Optional[str] = None
+    contact:        Optional[str] = None
     semantic_topic: Optional[str] = None
 
 class SourceModel(BaseModel):
@@ -532,6 +537,11 @@ async def create_client(data: ClientModel):
         res = supabase.table("clients").insert({
             "name": data.name,
             "keywords": data.keywords,
+            "web_keywords": data.web_keywords,
+            "sector": data.sector,
+            "description": data.description,
+            "website": data.website,
+            "contact": data.contact,
             "semantic_topic": data.semantic_topic,
         }).execute()
         return {"success": True, "client": res.data}
@@ -542,11 +552,8 @@ async def create_client(data: ClientModel):
 @app.put("/api/clients/{client_id}")
 async def update_client(client_id: str, data: ClientModel):
     try:
-        res = supabase.table("clients").update({
-            "name": data.name,
-            "keywords": data.keywords,
-            "semantic_topic": data.semantic_topic,
-        }).eq("id", client_id).execute()
+        update_data = {k: v for k, v in data.dict().items() if v is not None}
+        res = supabase.table("clients").update(update_data).eq("id", client_id).execute()
         return {"success": True, "client": res.data}
     except Exception as e:
         return {"error": str(e)}
